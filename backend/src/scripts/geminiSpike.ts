@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import { GoogleGenAI, Modality, type LiveConnectConfig } from '@google/genai';
+import type { LiveConnectConfig } from '@google/genai';
 import { config as appConfig } from '../config.js';
+import { ai, liveConfig as sharedLiveConfig } from '../gemini.js';
 
 const SAMPLE_RATE = 16000;
 const BYTES_PER_SAMPLE = 2;
@@ -39,14 +40,20 @@ function extractPcm(wav: Buffer): Buffer {
   throw new Error('No "data" chunk found: is this a valid WAV file?');
 }
 
-const ai = new GoogleGenAI({ apiKey: appConfig.geminiApiKey, httpOptions: { apiVersion: 'v1beta' } });
-
-const languageCodes = (process.argv[3] ?? '').split(',').map((c) => c.trim()).filter(Boolean);
-
-const liveConfig: LiveConnectConfig = {
-  responseModalities: [Modality.TEXT],
-  inputAudioTranscription: { languageCodes },
-};
+// Optional 2nd CLI arg overrides the shared languageCodes, e.g. "hi-IN,en-IN".
+// Omitted = use the shared value from src/gemini.ts.
+const languageArg = process.argv[3];
+const liveConfig: LiveConnectConfig =
+  languageArg === undefined
+    ? sharedLiveConfig
+    : {
+        ...sharedLiveConfig,
+        inputAudioTranscription: {
+          ...sharedLiveConfig.inputAudioTranscription,
+          languageCodes: languageArg.split(',').map((c) => c.trim()).filter(Boolean),
+        },
+      };
+const languageCodes = liveConfig.inputAudioTranscription?.languageCodes ?? [];
 
 async function main(): Promise<void> {
   const filePath = process.argv[2] ?? 'sample.wav';

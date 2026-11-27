@@ -3,6 +3,8 @@ import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import { config } from './config.js';
+import { WebSocketServer } from 'ws';
+import { handleTranscribeSocket } from './ws/transcribeSocket.js';
 
 const app = express();
 
@@ -32,6 +34,27 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 
 const server = http.createServer(app);
+const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+
+server.on('upgrade', (req, socket, head) => {
+  const pathname = new URL(req.url ?? '', `http://localhost:${config.port}`).pathname;
+  if (pathname !== '/ws/transcribe') {
+    socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  const origin = req.headers.origin;
+  if (!origin || !config.corsOrigins.includes(origin ?? '')) {
+    socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+    socket.destroy(); 
+    return;
+  }
+
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    handleTranscribeSocket(ws);
+  });
+
+});
 
 
 server.listen(config.port, '0.0.0.0', () => {
