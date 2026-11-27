@@ -5,6 +5,7 @@ import cors from 'cors';
 import { config } from './config.js';
 import { WebSocketServer } from 'ws';
 import { handleTranscribeSocket } from './ws/transcribeSocket.js';
+import { transcriptionsRouter } from './routes/transcriptions.js';
 
 const app = express();
 
@@ -22,12 +23,28 @@ app.get('/health', (_req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
-// Unknown routes.
+app.use('/api/transcriptions', transcriptionsRouter);
+
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: 'Not found' });
 });
 
+function clientErrorStatus(err: unknown): number | null {
+  if (typeof err !== 'object' || err === null || !('status' in err)) return null;
+  const status = err.status;
+  return typeof status === 'number' && status >= 400 && status < 500 ? status : null;
+}
+
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  const status = clientErrorStatus(err);
+  if (status === 413) {
+    res.status(413).json({ error: 'Request body too large' });
+    return;
+  }
+  if (status !== null) {
+    res.status(status).json({ error: 'Invalid request body' });
+    return;
+  }
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });
 });

@@ -3,8 +3,8 @@ import type { RawData, WebSocket } from 'ws';
 import type { LiveServerMessage, Session } from '@google/genai';
 import { ai, liveConfig } from '../gemini.js';
 import { config } from '../config.js';
-import { query } from '../db.js';
-import type { ClientMessage, ServerMessage, Transcription } from '../types.js';
+import { createTranscription } from '../transcriptionsRepo.js';
+import type { ClientMessage, ServerMessage } from '../types.js';
 
 const FLUSH_TIMEOUT_MS = 2500;
 const PCM_BYTES_PER_SECOND = 16000 * 2;
@@ -37,18 +37,6 @@ function toBuffer(data: RawData): Buffer {
   return Buffer.from(data);
 }
 
-async function insertTranscription(text: string, durationSec: number, sessionId: string): Promise<number> {
-  const result = await query<Pick<Transcription, 'id'>>(
-    `INSERT INTO transcriptions (text, language, duration_sec, session_id)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id`,
-    [text, null, durationSec, sessionId],
-  );
-  const row = result.rows[0];
-  if (!row) throw new Error('INSERT returned no row');
-  return row.id;
-}
-
 export function handleTranscribeSocket(ws: WebSocket): void {
   let session: Session | null = null;
   let starting = false;
@@ -74,8 +62,13 @@ export function handleTranscribeSocket(ws: WebSocket): void {
 
     saveQueue = saveQueue.then(async () => {
       try {
-        const id = await insertTranscription(text, durationSec, segmentSessionId);
-        send(ws, { type: 'final', text, id });
+        const saved = await createTranscription({
+          text,
+          language: null,
+          duration_sec: durationSec,
+          session_id: segmentSessionId,
+        });
+        send(ws, { type: 'final', text: saved.text, id: saved.id });
       } catch (err: unknown) {
         console.error('Failed to save final:', err instanceof Error ? err.message : err);
         send(ws, { type: 'error', message: 'Could not save part of the transcript.' });

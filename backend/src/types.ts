@@ -10,7 +10,15 @@ export interface Transcription {
   updated_at: string;
 }
 
-
+export interface TranscriptionRow {
+  id: number;
+  text: string;
+  language: string | null;
+  duration_sec: number | null;
+  session_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
 
 export interface TranscriptionListResponse {
   items: Transcription[];
