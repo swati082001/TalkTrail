@@ -33,6 +33,6 @@ export const config: Config = {
   geminiModel: process.env.GEMINI_MODEL?.trim() || 'gemini-3.5-transcribe-live',
   corsOrigins: (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
     .split(',')
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
     .filter((origin) => origin.length > 0),
 };

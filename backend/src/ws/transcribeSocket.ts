@@ -7,6 +7,7 @@ import { createTranscription } from '../transcriptionsRepo.js';
 import type { ClientMessage, ServerMessage } from '../types.js';
 
 const FLUSH_TIMEOUT_MS = 2500;
+const MAX_RECORDING_MS = 9.5 * 60 * 1000;
 const PCM_BYTES_PER_SECOND = 16000 * 2;
 
 function send(ws: WebSocket, msg: ServerMessage): void {
@@ -44,6 +45,7 @@ export function handleTranscribeSocket(ws: WebSocket): void {
   let stopRequested = false;
   let sessionId = '';
   let flushTimer: NodeJS.Timeout | null = null;
+  let maxDurationTimer: NodeJS.Timeout | null = null;
   let lastInterim = '';
   let bytesSinceFinal = 0;
   let droppedChunks = 0;
@@ -150,6 +152,10 @@ export function handleTranscribeSocket(ws: WebSocket): void {
       sessionId = randomUUID();
       lastInterim = '';
       bytesSinceFinal = 0;
+      maxDurationTimer = setTimeout(() => {
+        send(ws, { type: 'error', message: 'Recording limit reached (about 10 minutes). Press start to continue.' });
+        stopSession();
+      }, MAX_RECORDING_MS);
       send(ws, { type: 'ready' });
     } catch (err: unknown) {
       console.error('Failed to open Gemini session:', err instanceof Error ? err.message : err);
@@ -162,6 +168,8 @@ export function handleTranscribeSocket(ws: WebSocket): void {
   function resetSession(): void {
     if (flushTimer) clearTimeout(flushTimer);
     flushTimer = null;
+    if (maxDurationTimer) clearTimeout(maxDurationTimer);
+    maxDurationTimer = null;
     session = null;
     stopping = false;
   }
