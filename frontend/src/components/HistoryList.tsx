@@ -1,3 +1,4 @@
+import { Inbox } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { HistoryRow } from '@/components/HistoryRow'
@@ -18,40 +19,38 @@ export function HistoryList({ items, loading, emptyMessage, onEdit, onDelete }: 
   const showSkeleton = loading && items.length === 0
 
   return (
-    <div className="overflow-hidden rounded-lg border">
+    <div className="overflow-hidden rounded-xl border bg-background/60">
       <Table className="table-fixed">
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-12">ID</TableHead>
-            <TableHead>Text</TableHead>
-            <TableHead className="hidden w-44 sm:table-cell">Created</TableHead>
-            <TableHead className="w-24 text-right">Actions</TableHead>
+        <TableHeader className="bg-muted/40">
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-4">Transcript</TableHead>
+            <TableHead className="w-32 pr-4 text-right">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className={cn(loading && items.length > 0 && 'opacity-60 transition-opacity')}>
+        <TableBody className={cn('transition-opacity', loading && items.length > 0 && 'opacity-60')}>
           {showSkeleton &&
             Array.from({ length: SKELETON_ROWS }, (_, i) => (
-              <TableRow key={`skeleton-${i}`}>
-                <TableCell>
-                  <Skeleton className="h-4 w-6" />
-                </TableCell>
-                <TableCell>
+              <TableRow key={`skeleton-${i}`} className="hover:bg-transparent">
+                <TableCell className="py-4 pl-4">
                   <Skeleton className="h-4 w-full" />
-                  <Skeleton className="mt-2 h-4 w-2/3" />
+                  <Skeleton className="mt-2 h-4 w-3/5" />
+                  <Skeleton className="mt-3 h-3 w-32" />
                 </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  <Skeleton className="h-4 w-28" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="ml-auto h-6 w-14" />
-                </TableCell>
+                <TableCell />
               </TableRow>
             ))}
 
           {!showSkeleton && items.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
-                {emptyMessage}
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={2} className="py-14">
+                <div className="flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <Inbox className="size-5" />
+                  </div>
+                  <p>{emptyMessage}</p>
+                </div>
               </TableCell>
             </TableRow>
           )}

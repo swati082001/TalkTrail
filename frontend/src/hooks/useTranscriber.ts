@@ -17,8 +17,11 @@ export interface UseTranscriberResult {
   interim: string
   segments: Segment[]
   error: string | null
+  analyser: AnalyserNode | null
+  startedAt: number | null
   start: () => Promise<void>
   stop: () => void
+  clear: () => void
 }
 
 const STOP_TIMEOUT_MS = 5000
@@ -77,6 +80,8 @@ export function useTranscriber(options: UseTranscriberOptions = {}): UseTranscri
   const [interim, setInterim] = useState('')
   const [segments, setSegments] = useState<Segment[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null)
+  const [startedAt, setStartedAt] = useState<number | null>(null)
 
   const statusRef = useRef<TranscriberStatus>('idle')
   const wsRef = useRef<WebSocket | null>(null)
@@ -97,6 +102,8 @@ export function useTranscriber(options: UseTranscriberOptions = {}): UseTranscri
   }, [])
 
   const releaseAudio = useCallback(() => {
+    setAnalyser(null)
+    setStartedAt(null)
     const node = workletRef.current
     workletRef.current = null
     if (node) {
@@ -152,6 +159,7 @@ export function useTranscriber(options: UseTranscriberOptions = {}): UseTranscri
     (msg: ServerMessage) => {
       switch (msg.type) {
         case 'ready':
+          setStartedAt(Date.now())
           updateStatus('recording')
           break
         case 'interim':
@@ -216,6 +224,12 @@ export function useTranscriber(options: UseTranscriberOptions = {}): UseTranscri
       source.connect(node)
       workletRef.current = node
 
+      const levelAnalyser = ctx.createAnalyser()
+      levelAnalyser.fftSize = 64
+      levelAnalyser.smoothingTimeConstant = 0.75
+      source.connect(levelAnalyser)
+      setAnalyser(levelAnalyser)
+
       const ws = new WebSocket(import.meta.env.VITE_WS_URL)
       wsRef.current = ws
 
@@ -268,7 +282,12 @@ export function useTranscriber(options: UseTranscriberOptions = {}): UseTranscri
     stopTimerRef.current = window.setTimeout(finish, STOP_TIMEOUT_MS)
   }, [finish, releaseAudio, updateStatus])
 
+  const clear = useCallback(() => {
+    setSegments([])
+    setInterim('')
+  }, [])
+
   useEffect(() => cleanup, [cleanup])
 
-  return { status, interim, segments, error, start, stop }
+  return { status, interim, segments, error, analyser, startedAt, start, stop, clear }
 }
